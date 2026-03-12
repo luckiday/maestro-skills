@@ -32,20 +32,56 @@
 
 * { box-sizing: border-box; }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-/* Layout: sidebar left, main right */
+/* Layout: sidebar left, main right — full viewport height */
 .layout {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar-toggle {
+  display: none;
+  position: fixed;
+  top: env(safe-area-inset-top, 0.5rem);
+  left: 0.5rem;
+  z-index: 100;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--foreground);
+  cursor: pointer;
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.12);
+  touch-action: manipulation;
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.sidebar-overlay {
+  display: none;
 }
 
 .sidebar {
   width: 260px;
   min-width: 260px;
+  flex-shrink: 0;
   background: var(--sidebar);
   border-right: 1px solid var(--sidebar-border);
   display: flex;
@@ -55,6 +91,7 @@ body {
 .sidebar-header {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
 }
 
 .sidebar-header h1 {
@@ -66,15 +103,18 @@ body {
 
 .sidebar-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0.5rem;
 }
 
 .main {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  overflow: hidden;
 }
 
 .main-header {
@@ -92,11 +132,10 @@ body {
 
 .main-content {
   flex: 1;
-  overflow: auto;
-  padding: 1.5rem;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  overflow: hidden;
 }
 
 /* Tree */
@@ -113,6 +152,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
+  min-height: 44px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   border: none;
@@ -122,6 +162,7 @@ body {
   color: var(--sidebar-foreground);
   background: transparent;
   transition: background 150ms ease, color 150ms ease;
+  touch-action: manipulation;
 }
 
 .tree .node:hover {
@@ -157,20 +198,27 @@ body {
 
 /* Viewer */
 .viewer {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-height: 0;
   background: var(--card);
-  border-radius: var(--radius);
 }
 
 #viewer-body {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: auto;
+  padding: 1.5rem;
+}
+
+#viewer-body.viewer-body-pdf {
+  padding: 0;
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .viewer .content,
@@ -183,28 +231,30 @@ body {
 .viewer .content { white-space: normal; }
 .viewer pre { white-space: pre-wrap; word-break: break-word; }
 
-.viewer .content h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
-.viewer .content h2 { font-size: 1.1rem; margin: 1rem 0 0.5rem; }
-.viewer .content h3 { font-size: 1rem; margin: 0.75rem 0 0.25rem; }
-.viewer .content ul, .viewer .content ol { padding-left: 1.25rem; margin: 0.5rem 0; }
-.viewer .content code { background: var(--muted); padding: 0.125rem 0.375rem; border-radius: var(--radius-sm); font-size: 0.8125rem; }
-.viewer .content pre { background: var(--muted); padding: 1rem; border-radius: var(--radius); overflow-x: auto; margin: 0.5rem 0; }
+.viewer .content h1 { font-size: 1.5rem; margin: 0 0 0.75rem; font-weight: 600; }
+.viewer .content h2 { font-size: 1.25rem; margin: 1.25rem 0 0.5rem; font-weight: 600; }
+.viewer .content h3 { font-size: 1.1rem; margin: 1rem 0 0.5rem; font-weight: 600; }
+.viewer .content h4, .viewer .content h5, .viewer .content h6 { font-size: 1rem; margin: 0.75rem 0 0.25rem; font-weight: 600; }
+.viewer .content p { margin: 0 0 0.75rem; }
+.viewer .content ul, .viewer .content ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+.viewer .content li { margin: 0.25rem 0; }
+.viewer .content code { background: var(--muted); padding: 0.125rem 0.375rem; border-radius: var(--radius-sm); font-size: 0.8125rem; font-family: ui-monospace, monospace; }
+.viewer .content pre { background: var(--muted); padding: 1rem; border-radius: var(--radius); overflow-x: auto; margin: 0.75rem 0; }
+.viewer .content pre code { background: none; padding: 0; }
+.viewer .content blockquote { border-left: 4px solid var(--border); margin: 0.75rem 0; padding-left: 1rem; color: var(--muted-foreground); }
+.viewer .content a { color: var(--primary); text-decoration: underline; }
+.viewer .content a:hover { text-decoration: none; }
+.viewer .content table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.8125rem; }
+.viewer .content th, .viewer .content td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+.viewer .content th { background: var(--muted); font-weight: 600; }
+.viewer .content hr { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
 
 .viewer-pdf {
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
   border: none;
-  border-radius: var(--radius);
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted-foreground);
-  padding: 2rem;
 }
 
 .error-state {
@@ -260,8 +310,273 @@ body {
   outline-offset: 2px;
 }
 
-/* Responsive: stack on narrow screens */
+/* Mobile: 768px and below */
 @media (max-width: 768px) {
-  .layout { flex-direction: column; }
-  .sidebar { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--sidebar-border); }
+  .sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: oklch(0 0 0 / 0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+
+  .sidebar-overlay:not([hidden]) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 50;
+    width: min(280px, 85vw);
+    min-width: 0;
+    border-right: 1px solid var(--sidebar-border);
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+    box-shadow: 4px 0 12px oklch(0 0 0 / 0.1);
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .layout.sidebar-open .sidebar-toggle {
+    left: calc(min(280px, 85vw) - 44px - 0.5rem);
+  }
+
+  .main {
+    width: 100%;
+  }
+
+  .main-header {
+    padding: 0.75rem 1rem;
+    padding-left: calc(44px + 4px + 0.5rem);
+  }
+
+  .main-content {
+    padding: 1rem;
+  }
+
+  #viewer-body {
+    padding: 1rem;
+  }
+
+  .viewer .content {
+    font-size: 1rem;
+  }
+
+  .viewer .content pre {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Small phones */
+@media (max-width: 375px) {
+  .sidebar {
+    width: 100%;
+  }
+}
+
+/* Delete button */
+.delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.delete-btn:hover {
+  background: oklch(0.97 0 0);
+  color: oklch(0.6 0.2 25.72);
+  border-color: oklch(0.85 0 0);
+}
+
+/* Header layout with delete button */
+.main-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Tree divider */
+.tree-divider {
+  height: 1px;
+  background: var(--sidebar-border);
+  margin: 0.75rem 0.5rem;
+}
+
+/* Root folder styling */
+.tree .node.root-folder {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Edit button - matches delete style, icon next to it */
+.edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.edit-btn:hover {
+  background: oklch(0.97 0 0);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.edit-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Editor - only visible in edit mode */
+.editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--card);
+}
+
+.editor[hidden],
+.viewer[hidden] {
+  display: none !important;
+}
+
+.header-actions-view,
+.header-actions-edit {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.header-actions-edit[hidden],
+.header-actions-view[hidden] {
+  display: none !important;
+}
+
+.editor-pane {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-source {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-pane.editor-split .editor-source {
+  flex: 0 0 50%;
+  border-right: 1px solid var(--border);
+}
+
+.editor-preview {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 1.5rem;
+  background: var(--background);
+}
+
+.editor-preview-content {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Save/Cancel in header (when editing) */
+.header-actions .save-btn {
+  padding: 0.5rem 1rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+.header-actions .save-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.header-actions .save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.header-actions .cancel-btn {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+.header-actions .cancel-btn:hover {
+  background: var(--accent);
+}
+
+.editor-source .CodeMirror,
+.editor .CodeMirror {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.editor .CodeMirror-gutters {
+  background: var(--secondary);
+  border-right: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+  .editor-pane.editor-split {
+    flex-direction: column;
+  }
+  .editor-pane.editor-split .editor-source {
+    flex: 0 0 45%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
 }
