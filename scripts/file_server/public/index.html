@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teaching Docs</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>Teaching Docs</h1>
+      </div>
+      <div class="sidebar-content">
+        <ul class="tree" id="file-tree" aria-label="File list"></ul>
+        <div id="tree-loading" class="loading" aria-live="polite">Loading…</div>
+        <div id="tree-error" class="error-state" role="alert" hidden></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="main-header" id="main-header" hidden>
+        <h2 id="viewer-title"></h2>
+      </header>
+      <div class="main-content">
+        <section id="viewer" class="viewer" aria-label="File content" hidden>
+          <div id="viewer-body"></div>
+        </section>
+        <div id="empty-state" class="empty-state">Select a file to view.</div>
+      </div>
+    </main>
+  </div>
+
+  <template id="folder-icon">
+    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20 20a2 2 0 0 0 2-2V8l-3 3V8a2 2 0 0 0-2-2h-6l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/>
+    </svg>
+  </template>
+  <template id="file-icon">
+    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+      <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+    </svg>
+  </template>
+  <template id="pdf-icon">
+    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+      <path d="M14 12h2"/>
+      <path d="M14 16h2"/>
+      <path d="M10 12h2"/>
+    </svg>
+  </template>
+
+  <script>
+    const treeEl = document.getElementById('file-tree');
+    const treeLoading = document.getElementById('tree-loading');
+    const treeError = document.getElementById('tree-error');
+    const viewer = document.getElementById('viewer');
+    const mainHeader = document.getElementById('main-header');
+    const viewerTitle = document.getElementById('viewer-title');
+    const viewerBody = document.getElementById('viewer-body');
+    const emptyState = document.getElementById('empty-state');
+
+    let activePath = null;
+
+    function cloneIcon(id) {
+      return document.getElementById(id).content.cloneNode(true);
+    }
+
+    function renderTree(node, depth) {
+      if (node.type === 'file') {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'node file';
+        btn.dataset.path = node.path;
+        const isPdf = /\.pdf$/i.test(node.name);
+        btn.appendChild(cloneIcon(isPdf ? 'pdf-icon' : 'file-icon'));
+        btn.appendChild(document.createTextNode(node.name));
+        btn.setAttribute('aria-label', 'Open file ' + node.name);
+        btn.addEventListener('click', () => openFile(node.path, node.name));
+        li.appendChild(btn);
+        return li;
+      }
+      const li = document.createElement('li');
+      const childrenUl = document.createElement('ul');
+      childrenUl.className = 'children';
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'node folder';
+      toggle.appendChild(cloneIcon('folder-icon'));
+      toggle.appendChild(document.createTextNode(node.name));
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-label', 'Folder ' + node.name);
+      toggle.addEventListener('click', () => {
+        const open = childrenUl.hidden;
+        childrenUl.hidden = !open;
+        toggle.setAttribute('aria-expanded', String(!open));
+      });
+      li.appendChild(toggle);
+      if (node.children && node.children.length) {
+        node.children.forEach(child => {
+          childrenUl.appendChild(renderTree(child, depth + 1));
+        });
+        childrenUl.hidden = true;
+        li.appendChild(childrenUl);
+      }
+      return li;
+    }
+
+    function setActive(path) {
+      activePath = path;
+      treeEl.querySelectorAll('.node.file').forEach(n => {
+        n.classList.toggle('active', n.dataset.path === path);
+      });
+    }
+
+    async function loadTree() {
+      treeLoading.hidden = false;
+      treeError.hidden = true;
+      treeEl.innerHTML = '';
+      try {
+        const r = await fetch('/api/files', { credentials: 'include' });
+        if (r.status === 401) {
+          window.location.reload();
+          return;
+        }
+        if (!r.ok) throw new Error('Failed to load file list');
+        const root = await r.json();
+        if (root.children && root.children.length) {
+          root.children.forEach(child => {
+            treeEl.appendChild(renderTree(child, 0));
+          });
+        }
+      } catch (e) {
+        treeError.textContent = e.message || 'Error loading files';
+        treeError.hidden = false;
+      } finally {
+        treeLoading.hidden = true;
+      }
+    }
+
+    function fileUrl(path) {
+      const pathEnc = path.split('/').map(encodeURIComponent).join('/');
+      return '/api/files/' + pathEnc;
+    }
+
+    async function openFile(filePath, name) {
+      setActive(filePath);
+      emptyState.hidden = true;
+      mainHeader.hidden = false;
+      viewer.hidden = false;
+      viewerTitle.textContent = name;
+      viewerBody.innerHTML = '<span class="loading">Loading…</span>';
+
+      const isPdf = /\.pdf$/i.test(name);
+      if (isPdf) {
+        viewerBody.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.className = 'viewer-pdf';
+        iframe.src = fileUrl(filePath);
+        iframe.title = name;
+        viewerBody.appendChild(iframe);
+        return;
+      }
+
+      const isMarkdown = /\.md$/i.test(name);
+      try {
+        const r = await fetch(fileUrl(filePath), { credentials: 'include' });
+        if (r.status === 401) {
+          window.location.reload();
+          return;
+        }
+        if (!r.ok) throw new Error('Failed to load file');
+        const contentType = r.headers.get('Content-Type') || '';
+        const text = await r.text();
+        if (contentType.includes('markdown') || isMarkdown) {
+          viewerBody.innerHTML = '<div class="content">' + simpleMarkdown(text) + '</div>';
+        } else {
+          const pre = document.createElement('pre');
+          pre.textContent = text;
+          viewerBody.innerHTML = '';
+          viewerBody.appendChild(pre);
+        }
+      } catch (e) {
+        viewerBody.innerHTML = '<p class="error-state">' + (e.message || 'Error loading file') + '</p>';
+      }
+    }
+
+    function simpleMarkdown(text) {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/^\*\*(.+?)\*\*$/gm, '<strong>$1</strong>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br/>');
+    }
+
+    loadTree();
+  </script>
+</body>
+</html>

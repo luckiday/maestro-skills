@@ -22,8 +22,21 @@ dependency:
   spacy>=3.4.0
   nltk>=3.8.0
   ```
-- 环境初始化:下载英语语言模型
+- ⚠️ 注意: 需要 Python 3.12（Python 3.14 与 spacy 不兼容）
+- 环境初始化:
   ```bash
+  # 方法1: 使用 uv (推荐)
+  cd ~/.agents/skills/english-reading-difficulty
+  uv venv .venv --python 3.12
+  source .venv/bin/activate
+  uv pip install spacy nltk
+  curl -sS https://bootstrap.pypa.io/get-pip.py | python
+  python -m spacy download en_core_web_sm
+
+  # 方法2: 使用系统Python 3.12
+  python3.12 -m venv .venv
+  source .venv/bin/activate
+  pip install spacy nltk
   python -m spacy download en_core_web_sm
   ```
 
@@ -45,6 +58,9 @@ dependency:
   4. **生成最终报告**
      - 结合自动分析和人工评估，生成完整的难度分析报告
      - 报告包含:各维度得分、总分、难度等级、详细建议
+  5. **文件归档**
+     - 将原始PDF和报告保存到 workspace 的 `teaching-docs/reading/` 目录
+     - 命名格式: `[年][月][日]-[考试名称].[pdf/md]`, `[年][月][日]-[考试名称]-analyze.[md]`
 
 ## 资源索引
 - 核心脚本:见 [scripts/analyze_difficulty.py](scripts/analyze_difficulty.py)(用途:执行自动化分析，参数:`--text`文本路径或`--text-content`文本内容，`--questions`题目路径可选)
@@ -63,11 +79,27 @@ dependency:
 - 分析结果仅供参考，建议结合实际教学场景调整权重
 - 首次使用需要下载spacy语言模型（约10MB）
 - 题目分析需要提供题目文本，否则仅分析文章本身难度
+- 分析完成后务必更新 memory 工作日志，记录分析过程和结果
+
+## Workspace 文件结构
+```
+workspace/
+├── skills/
+│   └── english-reading-difficulty/    # 技能所在目录
+├── teaching-docs/
+│   └── reading/                       # 分析文档存放目录
+│       ├── 2026-0312-taichung-edu-vocab.pdf
+│       └── 2026-0312-taichung-edu-vocab-analyze.md
+└── memory/
+    └── YYYY-MM-DD.md                  # 工作日志
+```
 
 ## 使用示例
 
 ### 示例1:分析英文文章（无题目）
 ```bash
+cd ~/.agents/skills/english-reading-difficulty
+source .venv/bin/activate
 python scripts/analyze_difficulty.py --text content.txt --output report.md
 ```
 
