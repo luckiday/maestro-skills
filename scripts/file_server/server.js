@@ -379,6 +379,87 @@ app.delete(/^\/api\/files\/(.*)$/, requireAuth, (req, res) => {
   }
 });
 
+// GET /api/export/pdf/* — convert markdown to HTML for PDF export
+app.get(/^\/api\/export\/pdf\/(.*)$/, requireAuth, (req, res) => {
+  const raw = req.params[0] || '';
+  const filePath = safePath(raw);
+  if (!filePath) {
+    return res.status(400).json({ error: 'Invalid path' });
+  }
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext !== '.md' && ext !== '.txt' && ext !== '.markdown') {
+    return res.status(400).json({ error: 'Only markdown/text files can be exported to PDF' });
+  }
+  
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const title = path.basename(filePath, ext);
+    
+    // Simple markdown to HTML converter
+    let html = content
+      // Headers
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+      // Bold
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      // Lists
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+      // Line breaks
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>');
+    
+    // Wrap lists
+    html = html.replace(/(<li>.*<\/li>)+/g, '<ul>$&</ul>');
+    
+    const fullHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+    body {
+      font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      line-height: 1.8;
+      color: #333;
+    }
+    h1 { font-size: 24px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+    h2 { font-size: 20px; margin-top: 30px; }
+    h3 { font-size: 16px; }
+    ul { padding-left: 20px; }
+    li { margin: 8px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background: #f5f5f5; }
+    @media print {
+      body { padding: 0; }
+      h1 { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+<p>${html}</p>
+</body>
+</html>`;
+    
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(fullHtml);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to convert: ' + err.message });
+  }
+});
+
 // PUT /api/files/* — create or update file
 const EDITABLE_EXTS = ['.md', '.txt', '.json', '.html', '.css', '.js', '.ts', '.yaml', '.yml', '.toml', '.sh'];
 app.put(/^\/api\/files\/(.*)$/, requireAuth, (req, res) => {
